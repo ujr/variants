@@ -1,0 +1,10 @@
+# See https://www.gitignore.io/ for inspiration
+# This .gitignore is very minimal--add as needed
+
+# Object files
+*.o
+
+# Generated artifacts (executables, test files)
+test.out
+test.exp
+variants
