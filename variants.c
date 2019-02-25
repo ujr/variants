@@ -169,82 +169,82 @@ static void
 printposn(const char *prefix, int n)
 {
   int i;
-  if (prefix) printf("%s:", prefix);
-  for (i=0; i<n; i++) printf(" %X", i);
-  printf("\n");
+  if (prefix) fprintf(stderr, "%s:", prefix);
+  for (i=0; i<n; i++) fprintf(stderr, " %X", i);
+  fprintf(stderr, "\n");
 }
 
 static void
 printtext(const char *prefix, const char *s, int n)
 {
   int i;
-  if (prefix) printf("%s:", prefix);
-  for (i=0; i<n; i++) printf(" %c", s[i]);
-  printf("\n");
+  if (prefix) fprintf(stderr, "%s:", prefix);
+  for (i=0; i<n; i++) fprintf(stderr, " %c", s[i]);
+  fprintf(stderr, "\n");
 }
 
 static void
 printlnks(const char *prefix, const int *a, int n)
 {
   int i;
-  if (prefix) printf("%s:", prefix);
-  for (i=0; i<n; i++) printf(a[i]?" %X":" -", a[i]);
-  printf("\n");
+  if (prefix) fprintf(stderr, "%s:", prefix);
+  for (i=0; i<n; i++) fprintf(stderr, a[i]?" %X":" -", a[i]);
+  fprintf(stderr, "\n");
 }
 
 /*** Variant Expansion ***/
 
 static void expand(const char *text, int len);
-static int parse(const char *text, int len, int *down, int *next);
+static int parse(const char *text, int len, int *down, int *side);
 static void traverse(const char *text, int len,
-                     const int *down, const int *next, int i, Buffer *buf);
+                     const int *down, const int *side, int i, Buffer *buf);
 
 static void
 expand(const char *text, int len)
 {
   int pipe, reset;
-  int *down, *next;
+  int *down, *side;
   Buffer buf;
 
   down = calloc(len, sizeof(int));
   if (!down) { exit(EXIT_MEM); }
-  next = calloc(len, sizeof(int));
-  if (!next) { free(down); exit(EXIT_MEM); }
+  side = calloc(len, sizeof(int));
+  if (!side) { free(down); exit(EXIT_MEM); }
 
   // posn: 0 1 2 3 4 5 6 7 8 9 A B
   // text: a [ b [ c ] | d | e ] $
   // down: : B : 6 : : B : B : :     one after closing bracket
   // down: 1 : 3 : 5 6 : 8 : A B     down[i] > i for all i
-  // next: - 6 - - - - 8 - - - -     index of next pipe
+  // side: - 6 - - - - 8 - - - -     index of next pipe
 
-  pipe = parse(text, len, down, next);
+  pipe = parse(text, len, down, side);
 
 //  printposn("posn", len);
 //  printtext("text", text, len);
 //  printlnks("down", down, len);
-//  printlnks("next", next, len);
+//  printlnks("side", side, len);
 
   buffer_init(&buf, len);
 
   // Expand the first top-level variant:
   reset = buffer_length(&buf);
-  traverse(text, len, down, next, 0, &buf);
+  traverse(text, len, down, side, 0, &buf);
 
   // Expand remaining top-level variants:
   while (pipe > 0) {
     buffer_truncate(&buf, reset);
-    traverse(text, len, down, next, pipe+1, &buf);
-    pipe = next[pipe];
+    traverse(text, len, down, side, pipe+1, &buf);
+    pipe = side[pipe];
   }
 
   buffer_free(&buf);
 
-  free(next);
+  free(side);
   free(down);
 }
 
 static int
-parse(const char *text, int len, int *down, int *next)
+parse(const char *text, int len, int *down, int *side)
 {
   Stack stk;                     // stack of OPEN and PIPE indices
   int first_top_level_pipe = -1; // index of PIPE outside OPEN/CLOSE
@@ -260,10 +260,10 @@ parse(const char *text, int len, int *down, int *next)
       case '|':
         if (stack_count(&stk) > 0) {
           int j = stack_peek(&stk);
-          next[j] = i;
+          side[j] = i;
         }
         else {
-          first_top_level_pipe = i; // next[-1] = i
+          first_top_level_pipe = i; // side[-1] = i
         }
         stack_push(&stk, i); // remember pipe position
         break;
@@ -294,7 +294,8 @@ parse(const char *text, int len, int *down, int *next)
 }
 
 static void
-traverse(const char *text, int len, const int *down, const int *next, int i, Buffer *buf)
+traverse(const char *text, int len, const int *down, const int *side,
+         int i, Buffer *buf)
 {
   int reset;
 
@@ -302,17 +303,17 @@ traverse(const char *text, int len, const int *down, const int *next, int i, Buf
     switch (text[i]) {
     case '[':
       reset = buffer_length(buf); // remember prefix length
-      traverse(text, len, down, next, i+1, buf);
-      if (next[i] <= 0) { // optional part: [x]
+      traverse(text, len, down, side, i+1, buf);
+      if (side[i] <= 0) { // optional part: [x]
         buffer_truncate(buf, reset); // truncate to prefix
-        traverse(text, len, down, next, down[i], buf);
+        traverse(text, len, down, side, down[i], buf);
       }
-      else while (next[i] > 0) { // variants: [x|...]
-        i = next[i];
+      else while (side[i] > 0) { // variants: [x|y...]
+        i = side[i];
         buffer_truncate(buf, reset); // truncate to prefix
-        traverse(text, len, down, next, i+1, buf);
+        traverse(text, len, down, side, i+1, buf);
       }
-      return; // all down by recursive calls
+      return; // all done by recursive calls
     case '|':
       i = down[i];
       break;

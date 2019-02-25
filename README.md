@@ -4,13 +4,13 @@ Variant Expansion
 =================
 
 Generate variants of an input string based on markup:
-the vertical bar separates variants, brackets limit the scope of
-variants, and brackets with only one variant (i.e., no vertical
-bar) denote an optional part.
+the vertical bar `|` separates variants, brackets `[...]` limit
+the scope of variants, and brackets with only one variant (i.e.,
+no vertical bar) denote an optional part.
 
 Empty variants are not emitted.  
 Brackets can be nested, but should be balanced.  
-Invalid markup may result in unexpected output but never gives an error.
+Invalid markup may result in unexpected output, but never raises an error.
 
 Examples:
 
@@ -33,13 +33,17 @@ Syntax
 The syntax of variant notation is as follows:
 
 ```
-Variants = Sequence { '|' Sequence }  
-Sequence = Part { Part }  
-Part = Text | '[' Variants ']'
+Variants = Sequence { "|" Sequence }.  
+Sequence = Part { Part }.  
+Part = Text | "[" Variants "]".
 ```
 
-Here *Text* is any characters other than the vertical bar or brackets,
+Here Text is any characters other than the vertical bar or brackets;
 {...} denotes repetition (zero or more times), and | separates alternatives.
+(See [WSN][wsn] and [EBNF][ebnf] in Wikipedia.)
+
+[wsn]: https://en.wikipedia.org/wiki/Wirth_syntax_notation
+[ebnf]: https://en.wikipedia.org/wiki/Extended_Backus-Naur_form
 
 
 Usage
@@ -47,8 +51,11 @@ Usage
 
 From a shell prompt, type `make` to compile the C source,
 which should result in the `variants` executable program.
-This program reads variant notation from all its arguments,
-one after the other, and writes the expansions to standard output.
+
+The `variants` program reads variant notation from all its arguments,
+one after the other, and writes the expansions to standard output, each
+followed by a newline.
+
 Be careful to quote arguments because the special characters of variant
 syntax have special meaning to your shell, too.
 
@@ -73,8 +80,8 @@ The implementation works by traversing the dag defined by the markup
 as though it was a tree. For example, the input `"a[1|2]b"` defines
 the dag in Fig 1, which for expansion is traversed as though it was
 the tree in Fig 2. A preliminary parsing step creates two arrays,
-down and next, with link indices that facilitate navigation on the dag:
-in Fig 3, | and / are down links, and -- is a next link.
+_down_ and _side_, with link indices that facilitate navigation on the dag:
+in Fig 3, `|` and `/` are _down_ links, and `--` is a _side_ link.
 
           a                   a                   a
          / \                 / \                  |
