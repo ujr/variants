@@ -9,6 +9,9 @@ def peek(s):
   return s[len(s)-1]
 def pop(s):
   return s.pop()
+def exch(s):
+  assert len(s) <= 2
+  s[-2:] = s[-1],s[-2]
 
 def append(s, c):
   s.append(c)
@@ -18,11 +21,11 @@ def join(s):
   return ''.join(s)
 
 
-def parse(s, down, side):
-  """Fill the down and side arrays with link indices into s"""
+def parse(text, down, side):
+  """Fill the down and side arrays with link indices into text"""
   stk = []                   # stack of OPEN and PIPE indices
   first_top_level_pipe = -1  # index of PIPE outside OPEN/CLOSE
-  for i,c in enumerate(s):
+  for i,c in enumerate(text):
     if c=='[':
       push(stk, i)  # remember bracket position
       continue
@@ -38,7 +41,7 @@ def parse(s, down, side):
       while len(stk) > 0:
         j = pop(stk)
         down[j] = i+1
-        if s[j] == '[': break
+        if text[j] == '[': break
       down[i] = i+1
       continue
     down[i] = i+1
@@ -46,58 +49,64 @@ def parse(s, down, side):
   # Implicitly close unmatched opening brackets and end of text:
   while len(stk) > 0:
     j = pop(stk)
-    down[j] = len(s)
+    down[j] = len(text)
 
   return first_top_level_pipe
 
 
-def traverse(s, down, side, i, acc):
-  """traverse the dag defined by down and side indices, emit variants"""
-  n = len(s)
-  while i < n:
-    if s[i] == '[':
-      reset = len(acc)  # remember prefix length
-      if side[i] <= 0:  # optional part: [x]
-        traverse(s, down, side, down[i], acc)
-        trunc(acc, reset)  # truncate to prefix
-        traverse(s, down, side, i+1, acc)
-      else:
-        traverse(s, down, side, i+1, acc)
-        while side[i] > 0:  # variants: [x|y...]
-          i = side[i]
-          trunc(acc, reset)  # truncate to prefix
-          traverse(s, down, side, i+1, acc)
-      return  # all done by recursive calls
-    if s[i] == '|':
-      i = down[i]
-      continue
-    if s[i] == ']':
-      i += 1
-      continue
-    append(acc, s[i])
-    i += 1
-  
-  if len(acc) > 0:
-    print(join(acc))  # emit non-empty variant
-
-
-def expand(s):
-  n = len(s)
-  down, side = [0]*n, [0]*n
-  pipe = parse(s, down, side)
-  acc = [] # variant accumulator
-  # Expand the first top-level variant:
-  reset = len(acc)
-  traverse(s, down, side, 0, acc)
-  # Expand remaining top-level variants:
-  while pipe > 0:
+def traverse(text, down, side, stk, acc):
+  """traverse dag defined by down and side indices, yield variants"""
+  n = len(text)
+  while len(stk) > 0:
+    index, reset = pop(stk)
     trunc(acc, reset)
-    traverse(s, down, side, pipe+1, acc)
-    pipe = side[pipe]
+    while index < n:
+      if text[index] == '[':
+        reset = len(acc)
+        if side[index] > 0:  # two or more variants
+          push(stk, (side[index]+1, reset))
+          index += 1
+        else:  # optional part: treat [x] as [|x]
+          push(stk, (index+1, reset))
+          index = down[index]
+        continue
+      if text[index] == '|':
+        if side[index] > 0:
+          push(stk, (side[index]+1, reset))
+          exch(stk)  # ensure variant ordering
+        index = down[index]
+        continue
+      if text[index] == ']':
+        index += 1
+        continue
+      append(acc, text[index])
+      index += 1
+    if len(acc) > 0:
+      yield join(acc)  # emit non-empty variant
 
-  
-me = sys.argv[0]
-for arg in sys.argv[1:]:
-  expand(arg)
 
+def expand(text):
+  n = len(text)
+  down, side = [0]*n, [0]*n
+  pipe = parse(text, down, side)
+  acc = [] # variant accumulator
+  stk = [] # dag traversal stack
+  if pipe > 0: # 1st top level pipe
+    push(stk, (pipe+1, 0))
+  push(stk, (0, 0))
+  for v in traverse(text, down, side, stk, acc):
+    print(v)
+
+
+def main(argv=None):
+  if argv is None:
+    argv = sys.argv
+  me = argv[0]
+  for arg in argv[1:]:
+    expand(arg)
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())
 
