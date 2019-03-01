@@ -6,24 +6,24 @@ I ba[r|z]
 O bar
 O baz
 I qu[u]x
-O quux
 O qux
+O quux
 # Meta syntactic variables:
 I foo|ba[r|z[aar]]|qu[u]x
 O foo
 O bar
-O bazaar
 O baz
-O quux
+O bazaar
 O qux
+O quux
 # An example from rosetta code:
 I It[[em|alic]iz|erat]e[d], please
-O Itemized, please
 O Itemize, please
-O Italicized, please
+O Itemized, please
 O Italicize, please
-O Iterated, please
+O Italicized, please
 O Iterate, please
+O Iterated, please
 I a[1|2|3]b[4|5]c
 O a1b4c
 O a1b5c
@@ -33,24 +33,24 @@ O a3b4c
 O a3b5c
 # Variants of a name:
 I J[oh[ann]] W[olfgang] [v[on] ]Goethe
-O Johann Wolfgang von Goethe
-O Johann Wolfgang v Goethe
-O Johann Wolfgang Goethe
-O Johann W von Goethe
-O Johann W v Goethe
-O Johann W Goethe
-O Joh Wolfgang von Goethe
-O Joh Wolfgang v Goethe
-O Joh Wolfgang Goethe
-O Joh W von Goethe
-O Joh W v Goethe
-O Joh W Goethe
-O J Wolfgang von Goethe
-O J Wolfgang v Goethe
-O J Wolfgang Goethe
-O J W von Goethe
-O J W v Goethe
 O J W Goethe
+O J W v Goethe
+O J W von Goethe
+O J Wolfgang Goethe
+O J Wolfgang v Goethe
+O J Wolfgang von Goethe
+O Joh W Goethe
+O Joh W v Goethe
+O Joh W von Goethe
+O Joh Wolfgang Goethe
+O Joh Wolfgang v Goethe
+O Joh Wolfgang von Goethe
+O Johann W Goethe
+O Johann W v Goethe
+O Johann W von Goethe
+O Johann Wolfgang Goethe
+O Johann Wolfgang v Goethe
+O Johann Wolfgang von Goethe
 # Empty variants are not emitted
 I [[[foo]]]
 O foo
@@ -61,9 +61,9 @@ O fo
 O o
 # Unmatched opening brackets are implicitly closed at end of input
 I [f[o[o
-O foo
-O fo
 O f
+O fo
+O foo
 # [] is equivalent [|] and the unmatched bracket is implicitly closed
 I x[]x
 O xx

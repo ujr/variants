@@ -303,15 +303,17 @@ traverse(const char *text, int len, const int *down, const int *side,
     switch (text[i]) {
     case '[':
       reset = buffer_length(buf); // remember prefix length
-      traverse(text, len, down, side, i+1, buf);
       if (side[i] <= 0) { // optional part: [x]
-        buffer_truncate(buf, reset); // truncate to prefix
         traverse(text, len, down, side, down[i], buf);
-      }
-      else while (side[i] > 0) { // variants: [x|y...]
-        i = side[i];
         buffer_truncate(buf, reset); // truncate to prefix
         traverse(text, len, down, side, i+1, buf);
+      }
+      else {
+        traverse(text, len, down, side, i+1, buf);
+        while ((i=side[i]) > 0) { // variants: [x|y...]
+          buffer_truncate(buf, reset); // truncate to prefix
+          traverse(text, len, down, side, i+1, buf);
+        }
       }
       return; // all done by recursive calls
     case '|':

@@ -57,11 +57,12 @@ def traverse(s, down, side, i, acc):
   while i < n:
     if s[i] == '[':
       reset = len(acc)  # remember prefix length
-      traverse(s, down, side, i+1, acc)
       if side[i] <= 0:  # optional part: [x]
-        trunc(acc, reset)  # truncate to prefix
         traverse(s, down, side, down[i], acc)
+        trunc(acc, reset)  # truncate to prefix
+        traverse(s, down, side, i+1, acc)
       else:
+        traverse(s, down, side, i+1, acc)
         while side[i] > 0:  # variants: [x|y...]
           i = side[i]
           trunc(acc, reset)  # truncate to prefix

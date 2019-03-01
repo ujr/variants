@@ -17,7 +17,9 @@ clean:
 # Super simple automated testing: append actual expansion
 # results and expected results to two files, then compare
 # those files
-test: variants
-	./test.sh ./variants
-	./test.sh python variants.py
+test: testc testpy
 
+testc: variants
+	./test.sh ./variants
+testpy:
+	./test.sh python variants.py
