@@ -194,55 +194,19 @@ printlnks(const char *prefix, const int *a, int n)
 
 /*** Variant Expansion ***/
 
-static void expand(const char *text, int len);
-static int parse(const char *text, int len, int *down, int *side);
-static void traverse(const char *text, int len,
-                     const int *down, const int *side, int i, Buffer *buf);
-
-static void
-expand(const char *text, int len)
-{
-  int pipe, reset;
-  int *down, *side;
-  Buffer buf;
-
-  down = calloc(len, sizeof(int));
-  if (!down) { exit(EXIT_MEM); }
-  side = calloc(len, sizeof(int));
-  if (!side) { free(down); exit(EXIT_MEM); }
-
-  // posn: 0 1 2 3 4 5 6 7 8 9 A B
-  // text: a [ b [ c ] | d | e ] $
-  // down: : B : 6 : : B : B : :     one after closing bracket
-  // down: 1 : 3 : 5 6 : 8 : A B     down[i] > i for all i
-  // side: - 6 - - - - 8 - - - -     index of next pipe
-
-  pipe = parse(text, len, down, side);
-
-//  printposn("posn", len);
-//  printtext("text", text, len);
-//  printlnks("down", down, len);
-//  printlnks("side", side, len);
-
-  buffer_init(&buf, len);
-
-  // Expand the first top-level variant:
-  reset = buffer_length(&buf);
-  traverse(text, len, down, side, 0, &buf);
-
-  // Expand remaining top-level variants:
-  while (pipe > 0) {
-    buffer_truncate(&buf, reset);
-    traverse(text, len, down, side, pipe+1, &buf);
-    pipe = side[pipe];
-  }
-
-  buffer_free(&buf);
-
-  free(side);
-  free(down);
-}
-
+/*
+// Parse the variant notation in the given text, storing
+// into down[] and side[] the indices of the corresponding
+// branches as illustrated by this example:
+//
+//   posn: 0 1 2 3 4 5 6 7 8 9 A B
+//   text: a [ b [ c ] | d | e ] $
+//   down: : B : 6 : : B : B : :     one after closing bracket
+//   down: 1 : 3 : 5 6 : 8 : A B     down[i] > i for all i
+//   side: - 6 - - - - 8 - - - -     index of next pipe
+//
+// The down and side arrays must be of size at least len.
+*/
 static int
 parse(const char *text, int len, int *down, int *side)
 {
@@ -293,45 +257,92 @@ parse(const char *text, int len, int *down, int *side)
   return first_top_level_pipe;
 }
 
-static void
-traverse(const char *text, int len, const int *down, const int *side,
-         int i, Buffer *buf)
-{
-  int reset;
+/* Push and pop tuples (i,r) onto and from the stack: */
+#define push(stk, i,r) stack_push(stk,i); stack_push(stk,r)
+#define pop(stk, i,r) do{r=stack_pop(stk); i=stack_pop(stk);}while(0)
 
-  while (i < len) {
-    switch (text[i]) {
-    case '[':
-      reset = buffer_length(buf); // remember prefix length
-      if (side[i] <= 0) { // optional part: [x]
-        traverse(text, len, down, side, down[i], buf);
-        buffer_truncate(buf, reset); // truncate to prefix
-        traverse(text, len, down, side, i+1, buf);
-      }
-      else {
-        traverse(text, len, down, side, i+1, buf);
-        while ((i=side[i]) > 0) { // variants: [x|y...]
-          buffer_truncate(buf, reset); // truncate to prefix
-          traverse(text, len, down, side, i+1, buf);
+/* Exchange the top two tuples on the stack: */
+#define exch(stk) do{int a,b,c,d;pop(stk,c,d);pop(stk,a,b);\
+                     push(stk,c,d);push(stk,a,b);}while(0)
+
+static void
+traverse(const char *text, int len, int *down, int *side,
+          Stack *stk, Buffer *acc)
+{
+  int index, reset;
+  while (stack_count(stk) > 0) {
+    pop(stk, index, reset);
+    buffer_truncate(acc, reset);
+    while (index < len) {
+      switch (text[index]) {
+      case '[':
+        reset = buffer_length(acc);
+        if (side[index] > 0) { // two or more variants
+          push(stk, side[index]+1, reset);
+          index += 1;
         }
+        else { // optional part: treat [x] as [|x]
+          push(stk, index+1, reset);
+          index = down[index];
+        }
+        break;
+      case '|':
+        if (side[index] > 0) {
+          push(stk, side[index]+1, reset);
+          exch(stk); // ensure ordering: lift next variant to top
+        }
+        index = down[index];
+        break;
+      case ']':
+        index += 1;
+        break;
+      default:
+        buffer_append(acc, text[index]);
+        index += 1;
+        break;
       }
-      return; // all done by recursive calls
-    case '|':
-      i = down[i];
-      break;
-    case ']':
-      i += 1;
-      break;
-    default:
-      buffer_append(buf, text[i]);
-      i += 1;
-      break;
+    }
+    if (buffer_length(acc) > 0) {
+       puts(buffer_string(acc)); // emit non-empty variant
     }
   }
+}
 
-  if (buffer_length(buf) > 0) {
-    puts(buffer_string(buf)); // emit non-empty variant
+static void
+expand(const char *text, int len)
+{
+  int pipe;     // first top-level pipe
+  int *down, *side; // dag link indices
+  Buffer acc;    // variant accumulator
+  Stack stk;     // dag traversal stack
+
+  down = calloc(len, sizeof(int));
+  if (!down) { perror("Cannot expand"); exit(EXIT_MEM); }
+  side = calloc(len, sizeof(int));
+  if (!side) { perror("Cannot expand"); exit(EXIT_MEM); }
+
+  buffer_init(&acc, 0);
+  stack_init(&stk, 0);
+
+  pipe = parse(text, len, down, side);
+
+//  printposn("posn", len);
+//  printtext("text", text, len);
+//  printlnks("down", down, len);
+//  printlnks("side", side, len);
+
+  if (pipe>0) {
+    push(&stk, pipe+1, 0); // after first top-level pipe
   }
+  push(&stk, 0, 0); // at start of variant notation
+
+  traverse(text, len, down, side, &stk, &acc);
+
+  stack_free(&stk);
+  buffer_free(&acc);
+
+  free(side);
+  free(down);
 }
 
 int

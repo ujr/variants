@@ -52,25 +52,28 @@ Usage
 From a shell prompt, type `make` to compile the C source,
 which should result in the `variants` executable program.
 
-The `variants` program reads variant notation from all its arguments,
-one after the other, and writes the expansions to standard output, each
-followed by a newline.
-
-Be careful to quote arguments because the special characters of variant
-syntax have special meaning to your shell, too.
-
 Usage: **variants** _text_ ...
 
-Example run:
+The `variants` program reads variant notation from all its arguments,
+one after the other, and writes the expansions to standard output, each
+followed by a newline. Be careful to quote arguments because the special
+characters of variant syntax have special meaning to your shell, too.
+An example run in your shell could look like this:
 
 ```
-$ expand "ba[r|z[aar]]" qu[u]x
+$ variants "ba[r|z[aar]]" qu[u]x
 bar
 bazaar
 baz
 quux
 qux
 ```
+
+The Python version of the program works exactly the same.
+Pass the `variants.py` script and any arguments to expand
+to the `python` executable (works with both 2.x and 3.x).
+
+Usage: python **variants.py** _text_ ...
 
 
 Miscellaneous
